@@ -1,0 +1,14 @@
+{
+  "name": "virtual-study-room",
+  "version": "1.0.0",
+  "description": "虚拟自习室 / 专注空间 - 线上陪伴式专注学习平台",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "dev:server": "cd server && node index.js",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "start": "npm run dev"
+  },
+  "keywords": ["study", "pomodoro", "virtual-room"],
+  "license": "MIT"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "virtual-study-room-server",
+  "version": "1.0.0",
+  "description": "虚拟自习室后端服务",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "sql.js": "^1.12.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.0"
+  }
+}
