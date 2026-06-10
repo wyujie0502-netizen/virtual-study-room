@@ -4,91 +4,71 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const { Server } = require('socket.io');
+
+const PORT = process.env.PORT || 3001;
+const clientDist = path.join(__dirname, '..', 'client', 'dist');
+const hasFrontend = fs.existsSync(clientDist);
+
+// 先初始化数据库，失败就打印错误
+let dbReady = true;
+try {
+  require('./db');
+  console.log('[启动] 数据库初始化成功');
+} catch (e) {
+  dbReady = false;
+  console.error('[启动] 数据库初始化失败:', e.message);
+}
+
 const { setupSocketHandlers } = require('./socket/handlers');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const statsRoutes = require('./routes/stats');
 
-function start() {
+const app = express();
+const server = http.createServer(app);
 
-  const app = express();
-  const server = http.createServer(app);
+// CORS
+app.use(cors({ origin: hasFrontend ? true : ['http://localhost:5173'], credentials: true }));
+app.use(express.json());
 
-  // 检查是否生产模式（前端已构建）
-  const clientDist = path.join(__dirname, '..', 'client', 'dist');
-  const hasFrontend = fs.existsSync(clientDist);
+// API
+app.use('/api/auth', authRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/stats', statsRoutes);
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', db: dbReady, timestamp: new Date().toISOString() });
+});
 
-  // CORS：生产模式允许所有来源（方便局域网联机），开发模式限制来源
-  const corsOrigin = hasFrontend
-    ? true
-    : ['http://localhost:5173', 'http://127.0.0.1:5173'];
-
-  // ==================== 中间件 ====================
-  app.use(cors({ origin: corsOrigin, credentials: true }));
-  app.use(express.json());
-
-  // ==================== REST API 路由 ====================
-  app.use('/api/auth', authRoutes);
-  app.use('/api/rooms', roomRoutes);
-  app.use('/api/stats', statsRoutes);
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
-  // ==================== 生产模式：提供前端静态文件 ====================
-  if (hasFrontend) {
-    app.use(express.static(clientDist));
-    const indexHtml = path.join(clientDist, 'index.html');
-    app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
-      res.sendFile(indexHtml);
-    });
-  }
-
-  // ==================== Socket.io ====================
-  const io = new Server(server, {
-    cors: {
-      origin: corsOrigin,
-      methods: ['GET', 'POST'],
-      credentials: true,
-    },
-    pingInterval: 5000,
-    pingTimeout: 10000,
-  });
-
-  setupSocketHandlers(io);
-
-  // ==================== 启动 ====================
-  const PORT = process.env.PORT || 3001;
-  server.listen(PORT, '0.0.0.0', () => {
-    const os = require('os');
-    const ifaces = os.networkInterfaces();
-    let lanIP = 'localhost';
-    for (const name of Object.keys(ifaces)) {
-      for (const iface of ifaces[name]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          lanIP = iface.address;
-          break;
-        }
-      }
-    }
-
-    console.log('=======================================');
-    console.log('  📚 虚拟自习室 已启动');
-    console.log(`  本机访问: http://localhost:${PORT}`);
-    console.log(`  局域网:   http://${lanIP}:${PORT}`);
-    console.log(`  API:      http://localhost:${PORT}/api`);
-    if (!hasFrontend) {
-      console.log('  ⚠️  前端未构建，运行 cd client && npm run build');
-    }
-    console.log('=======================================');
-  });
-
-  process.on('SIGINT', () => {
-    console.log('\n正在关闭...');
-    io.close();
-    server.close(() => process.exit(0));
+// 前端静态文件
+if (hasFrontend) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+    res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
 
-start();
+// Socket.io
+const io = new Server(server, {
+  cors: { origin: hasFrontend ? true : ['http://localhost:5173'], methods: ['GET', 'POST'], credentials: true },
+  pingInterval: 5000,
+  pingTimeout: 10000,
+});
+
+setupSocketHandlers(io);
+
+// 启动
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('=======================================');
+  console.log('  📚 虚拟自习室 已启动');
+  console.log(`  端口: ${PORT}`);
+  console.log(`  数据库: ${dbReady ? 'OK' : 'FAILED'}`);
+  console.log(`  前端: ${hasFrontend ? '已就绪' : '未构建'}`);
+  console.log('=======================================');
+});
+
+process.on('SIGINT', () => {
+  console.log('正在关闭...');
+  io.close();
+  server.close(() => process.exit(0));
+});
