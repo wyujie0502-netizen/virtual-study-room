@@ -4,14 +4,12 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const { Server } = require('socket.io');
-const { waitForReady } = require('./db');
 const { setupSocketHandlers } = require('./socket/handlers');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const statsRoutes = require('./routes/stats');
 
-async function start() {
-  await waitForReady();
+function start() {
 
   const app = express();
   const server = http.createServer(app);
@@ -93,7 +91,4 @@ async function start() {
   });
 }
 
-start().catch((err) => {
-  console.error('启动失败:', err);
-  process.exit(1);
-});
+start();
