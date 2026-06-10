@@ -315,7 +315,10 @@ function waitForReady() {
   return readyPromise;
 }
 
-readyPromise = initSqlJs().then((SQL) => {
+readyPromise = initSqlJs({
+  // 使用本地 WASM 文件，避免云端部署时无法从 CDN 下载
+  locateFile: file => path.join(__dirname, 'node_modules', 'sql.js', 'dist', file)
+}).then((SQL) => {
   initDatabase(SQL);
   ready = true;
   console.log('[数据库] SQLite 初始化完成');
