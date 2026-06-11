@@ -72,9 +72,11 @@ export default function RoomPage() {
 
     socketRef.current = socket;
 
-    // 发送 room:join（仅首次）
+    // 发送 room:join（仅首次），传递密码（如果有）
     if (!joinSentRef.current) {
-      socket.emit('room:join', { roomId: parseInt(roomId) });
+      const joinData = { roomId: parseInt(roomId) };
+      if (location.state?.password) joinData.password = location.state.password;
+      socket.emit('room:join', joinData);
       joinSentRef.current = true;
     }
 
@@ -240,8 +242,8 @@ export default function RoomPage() {
               </svg>
             </button>
             <h1 className="text-lg font-bold text-gray-800 truncate max-w-[200px]">{room.name}</h1>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${room.is_private ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-              {room.is_private ? '🔒 私密' : '🌐 公开'}
+            <span className={`text-xs px-2 py-0.5 rounded-full ${room.has_password ? 'bg-amber-100 text-amber-700' : room.is_private ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+              {room.has_password ? '🔐 密码保护' : room.is_private ? '🔒 私密' : '🌐 公开'}
             </span>
             {!connected && <span className="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full animate-pulse">重连中</span>}
           </div>
@@ -311,7 +313,7 @@ export default function RoomPage() {
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex justify-between"><span>创建者</span><span className="font-medium text-gray-800">{room.creator_nickname}</span></div>
                 <div className="flex justify-between"><span>人数</span><span>{members.length}/8</span></div>
-                <div className="flex justify-between"><span>类型</span><span>{room.is_private ? '私密' : '公开'}</span></div>
+                <div className="flex justify-between"><span>类型</span><span>{room.has_password ? '🔐 密码保护' : room.is_private ? '🔒 私密' : '🌐 公开'}</span></div>
               </div>
             </div>
           </div>

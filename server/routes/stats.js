@@ -23,25 +23,21 @@ function formatShortTime(totalSeconds) {
 }
 
 // ==================== 计算连续学习天数 ====================
-function calculateStreak(userId) {
-  const days = stmts.getUserFocusDays(userId);
+async function calculateStreak(userId) {
+  const days = await stmts.getUserFocusDays(userId);
   if (!days || days.length === 0) return 0;
 
-  // 今天是第 0 天
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // 最近一次学习日期
   const latestDate = new Date(days[0].date + 'T00:00:00');
   const diffFromToday = Math.floor((today - latestDate) / (1000 * 60 * 60 * 24));
 
-  // 如果最近学习日期距今超过 1 天，断签
   if (diffFromToday > 1) return 0;
 
-  // 从最近日期往前数连续天数
   let streak = 0;
-  let checkDate = new Date(latestDate);
-  const sortedDates = days.map(d => d.date).sort(); // 升序
+  const checkDate = new Date(latestDate);
+  const sortedDates = days.map(d => d.date).sort();
   const dateSet = new Set(sortedDates);
 
   while (true) {
@@ -58,8 +54,8 @@ function calculateStreak(userId) {
 }
 
 // GET /api/stats/personal — 个人专注统计（简版，保持向后兼容）
-router.get('/personal', (req, res) => {
-  const result = stmts.getUserFocusStats(req.user.id);
+router.get('/personal', async (req, res) => {
+  const result = await stmts.getUserFocusStats(req.user.id);
   const totalSeconds = result ? result.total_seconds : 0;
 
   const totalMinutes = Math.floor(totalSeconds / 60);
@@ -76,32 +72,27 @@ router.get('/personal', (req, res) => {
 });
 
 // GET /api/stats/dashboard — 个人仪表盘（完整统计）
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   const userId = req.user.id;
 
-  // 累计专注时长
-  const total = stmts.getUserFocusStats(userId);
+  const total = await stmts.getUserFocusStats(userId);
   const totalSeconds = total ? total.total_seconds : 0;
 
-  // 今日专注时长
   const today = new Date().toISOString().slice(0, 10);
-  const todayStats = stmts.getUserDailyFocus(userId, today);
+  const todayStats = await stmts.getUserDailyFocus(userId, today);
   const todaySeconds = todayStats ? todayStats.total_seconds : 0;
 
-  // 连续学习天数
-  const streak = calculateStreak(userId);
+  const streak = await calculateStreak(userId);
 
-  // 本周每日统计（最近 7 天）
-  const weeklyData = stmts.getUserWeeklyFocus(userId);
+  const weeklyData = await stmts.getUserWeeklyFocus(userId);
   const weekMap = {};
   for (const row of weeklyData) {
     weekMap[row.date] = row.total_seconds;
   }
 
-  // 生成本周 7 天的数组（周一～周日）
   const weekDays = [];
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=周日, 1=周一...
+  const dayOfWeek = now.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
   for (let i = 0; i < 7; i++) {
@@ -118,8 +109,7 @@ router.get('/dashboard', (req, res) => {
     });
   }
 
-  // 总学习次数
-  const sessionCountResult = stmts.getUserSessionCount(userId);
+  const sessionCountResult = await stmts.getUserSessionCount(userId);
   const sessionCount = sessionCountResult ? sessionCountResult.count : 0;
 
   res.json({
@@ -134,11 +124,11 @@ router.get('/dashboard', (req, res) => {
 });
 
 // GET /api/stats/sessions — 最近学习记录
-router.get('/sessions', (req, res) => {
+router.get('/sessions', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
-  const sessions = stmts.getUserSessions(req.user.id, limit);
+  const sessions = await stmts.getUserSessions(req.user.id, limit);
 
-  const result = sessions.map((s, index) => ({
+  const result = sessions.map((s) => ({
     id: s.id,
     roomId: s.room_id,
     roomName: s.room_name || '(已删除的房间)',
@@ -152,8 +142,8 @@ router.get('/sessions', (req, res) => {
 });
 
 // GET /api/stats/leaderboard/:roomId — 房间排行榜
-router.get('/leaderboard/:roomId', (req, res) => {
-  const leaderboard = stmts.getRoomFocusLeaderboard(req.params.roomId);
+router.get('/leaderboard/:roomId', async (req, res) => {
+  const leaderboard = await stmts.getRoomFocusLeaderboard(req.params.roomId);
   res.json({
     roomId: parseInt(req.params.roomId),
     leaderboard: leaderboard.map((entry, index) => ({
