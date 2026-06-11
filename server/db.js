@@ -76,6 +76,16 @@ async function initDB() {
     try { await client.execute(sql); } catch (e) { /* 字段已存在，忽略 */ }
   }
 
+  // 确保至少有一个管理员：如果没有任何管理员，提拔最早注册的用户
+  const adminCount = await client.execute('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1');
+  if (adminCount.rows[0].count === 0) {
+    const firstUser = await client.execute('SELECT id, nickname FROM users ORDER BY id ASC LIMIT 1');
+    if (firstUser.rows[0]) {
+      await client.execute({ sql: 'UPDATE users SET is_admin = 1 WHERE id = ?', args: [firstUser.rows[0].id] });
+      console.log(`[数据库] 自动提拔最早用户为管理员: ${firstUser.rows[0].nickname} (ID:${firstUser.rows[0].id})`);
+    }
+  }
+
   console.log('[数据库] 初始化完成');
 }
 
